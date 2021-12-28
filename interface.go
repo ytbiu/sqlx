@@ -1,4 +1,4 @@
-package gsql
+package sqlx
 
 import "gorm.io/gorm"
 
@@ -10,4 +10,5 @@ type GORMAndErrHandler interface {
 	Create(model interface{})
 	Exists(wrapDBs ...func(*gorm.DB) *gorm.DB) (exists bool)
 	TxProcess(txFuncGroup ...func(h GORMAndErrHandler))
+	Err(errWrappers ...func(err error) error) error
 }

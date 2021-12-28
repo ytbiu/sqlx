@@ -1,21 +1,21 @@
-package gsql
+package sqlx
 
-import "gorm.io/gorm"
+import (
+	"github.com/ytbiu/errh"
+	"gorm.io/gorm"
+)
 
-// Base baseDao
 type Base struct {
 	GORMHandler
+	errh.ErrHandler
 }
 
-// New 构造方法
-func New(db *gorm.DB, errWrappers ...func(err error) error) *Base {
+func New(db *gorm.DB, h errh.ErrHandler) *Base {
 	return &Base{
 		GORMHandler: GORMHandler{
 			db: db,
 		},
-		ErrHandler: ErrHandler{
-			defaultErrWrappers: errWrappers,
-		},
+		ErrHandler: h,
 	}
 }
 
@@ -24,7 +24,8 @@ func (b *Base) FindAll(result interface{}, wrapDBs ...func(*gorm.DB) *gorm.DB) (
 	if b.HasErr() {
 		return 0
 	}
-	total, b.err = FindAll(result, wrapDBs...)
+	total, err := b.GORMHandler.FindAll(result, wrapDBs...)
+	b.TryToSetErr(err)
 	return
 }
 
@@ -33,7 +34,8 @@ func (b *Base) FindOne(result interface{}, wrapDBs ...func(*gorm.DB) *gorm.DB) {
 	if b.HasErr() {
 		return
 	}
-	b.err = FindOne(result, wrapDBs...)
+	err := b.GORMHandler.FindOne(result, wrapDBs...)
+	b.TryToSetErr(err)
 }
 
 // FindAllWithoutCount 查列表
@@ -41,7 +43,8 @@ func (b *Base) FindAllWithoutCount(result interface{}, wrapDBs ...func(*gorm.DB)
 	if b.HasErr() {
 		return
 	}
-	b.err = FindAllWithoutCount(result, wrapDBs...)
+	err := b.GORMHandler.FindAllWithoutCount(result, wrapDBs...)
+	b.TryToSetErr(err)
 }
 
 // Count 数量
@@ -49,7 +52,8 @@ func (b *Base) Count(model interface{}, wrapDBs ...func(*gorm.DB) *gorm.DB) (cou
 	if b.HasErr() {
 		return
 	}
-	count, b.err = Count(model, wrapDBs...)
+	count, err := b.GORMHandler.Count(model, wrapDBs...)
+	b.TryToSetErr(err)
 	return count
 }
 
@@ -58,7 +62,8 @@ func (b *Base) Create(model interface{}) {
 	if b.HasErr() {
 		return
 	}
-	b.err = Create(model)
+	err := b.GORMHandler.Create(model)
+	b.TryToSetErr(err)
 }
 
 // Exists 判断是否存在
@@ -66,7 +71,8 @@ func (b *Base) Exists(wrapDBs ...func(*gorm.DB) *gorm.DB) (exists bool) {
 	if b.HasErr() {
 		return
 	}
-	exists, b.err = Exists(wrapDBs...)
+	exists, err := b.GORMHandler.Exists(wrapDBs...)
+	b.TryToSetErr(err)
 	return
 }
 
@@ -75,10 +81,11 @@ func (b *Base) TxProcess(txFuncGroup ...func(h GORMAndErrHandler)) {
 	if b.HasErr() {
 		return
 	}
-	db := GetClient()
+	db := b.db
 	b.db = db.Begin()
 	tx := b.db
-	if b.err = tx.Error; b.err != nil {
+	if err := tx.Error; err != nil {
+		b.TryToSetErr(err)
 		return
 	}
 
